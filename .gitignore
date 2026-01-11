@@ -5,19 +5,18 @@
 *.tfvars
 .crash.log
 
-# Terraform lock is OK
+# Terraform lock
 !.terraform.lock.hcl
 
-# AWS
+# AWS CLI
+aws/
 awscliv2.zip
-.aws/
-
-# OS / Editor
-.DS_Store
-.vscode/
-.idea/
 
 # Secrets
 .env
 *.pem
 *.key
+
+# Editor
+.vscode/
+.idea/
