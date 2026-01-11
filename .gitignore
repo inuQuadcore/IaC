@@ -1,0 +1,23 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.crash.log
+
+# Terraform lock is OK
+!.terraform.lock.hcl
+
+# AWS
+awscliv2.zip
+.aws/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets
+.env
+*.pem
+*.key
