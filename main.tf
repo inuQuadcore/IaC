@@ -57,6 +57,18 @@ resource "aws_subnet" "public" {
   }
 }
 
+# Public Subnet 2 - Monitoring
+resource "aws_subnet" "public_monitoring" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "ap-southeast-1a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "everybuddy-public-subnet-monitoring"
+  }
+}
+
 # ============================================================
 # Route Table (라우팅 테이블)
 # ============================================================
@@ -86,10 +98,18 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# 모니터링 서버 서브넷 - 라우팅 테이블 연결
+resource "aws_route_table_association" "public_monitoring" {
+  subnet_id      = aws_subnet.public_monitoring.id
+  route_table_id = aws_route_table.public.id
+}
+
+
 # ============================================================
 # EC2 Instance (가상 서버)
 # ============================================================
-# 실제 애플리케이션이 돌아가는 서버
+
+# EC2 Instance - Backend Server 
 resource "aws_instance" "backend" {
   # AMI: Amazon Machine Image (운영체제 이미지)
   ami           = "ami-0497a974f8d5dcef8"  # Ubuntu 24.04 LTS (Singapore)
@@ -108,6 +128,22 @@ resource "aws_instance" "backend" {
 
   tags = {
     Name = "everybuddy-backend"
+  }
+}
+
+# EC2 Instance - Monitoring Server 
+resource "aws_instance" "monitoring" {
+  ami           = "ami-0497a974f8d5dcef8"  # Ubuntu 24.04 LTS (Singapore)
+  instance_type = "t3.micro"
+
+  subnet_id                   = aws_subnet.public_monitoring.id
+  vpc_security_group_ids      = [aws_security_group.monitoring.id]
+  associate_public_ip_address = true
+  
+  key_name = aws_key_pair.everybuddy.key_name
+
+  tags = {
+    Name = "everybuddy-monitoring"
   }
 }
 
