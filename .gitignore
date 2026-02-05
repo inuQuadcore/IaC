@@ -20,3 +20,7 @@ awscliv2.zip
 # Editor
 .vscode/
 .idea/
+
+# Serverkey
+serverkey
+serverkey.pub

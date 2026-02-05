@@ -115,13 +115,12 @@ resource "aws_instance" "backend" {
   ami           = "ami-0497a974f8d5dcef8"  # Ubuntu 24.04 LTS (Singapore)
   
   # 인스턴스 타입: 서버 사양 (CPU, 메모리)
-  # t3.micro = 2 vCPU, 1GB RAM (무료 티어)
-  instance_type = "t3.micro"
+  # t3.small = 2 vCPU, 2GB RAM
+  instance_type = "t3.small"
 
   # 네트워크 설정
-  subnet_id                   = aws_subnet.public.id  # 위에서 만든 서브넷에 배치
-  vpc_security_group_ids      = [aws_security_group.backend.id]  # 방화벽 규칙
-  associate_public_ip_address = true  # 공인 IP 자동 할당
+  subnet_id              = aws_subnet.public.id  # 위에서 만든 서브넷에 배치
+  vpc_security_group_ids = [aws_security_group.backend.id]  # 방화벽 규칙
   
   # SSH 접속용 키페어
   key_name = aws_key_pair.everybuddy.key_name
@@ -147,6 +146,7 @@ resource "aws_instance" "monitoring" {
   }
 }
 
+
 # ============================================================
 # SSH Key Pair (SSH 키페어)
 # ============================================================
@@ -160,4 +160,22 @@ resource "aws_key_pair" "everybuddy" {
   tags = {
     Name = "everybuddy-ssh-key"
   }
+}
+
+# ============================================================
+# Elastic IP (고정 IP)
+# ============================================================
+# 인스턴스 재시작해도 IP가 변하지 않음
+resource "aws_eip" "backend" {
+  domain = "vpc"
+
+  tags = {
+    Name = "everybuddy-backend-eip"
+  }
+}
+
+# Elastic IP와 EC2 인스턴스 연결
+resource "aws_eip_association" "backend" {
+  instance_id   = aws_instance.backend.id
+  allocation_id = aws_eip.backend.id
 }

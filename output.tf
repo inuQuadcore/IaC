@@ -34,8 +34,8 @@ output "ec2_instance_id" {
 }
 
 output "ec2_public_ip" {
-  description = "EC2 Public IP"
-  value       = aws_instance.backend.public_ip
+  description = "EC2 Public IP (Elastic IP)"
+  value       = aws_eip.backend.public_ip
 }
 
 output "ec2_public_dns" {
@@ -46,7 +46,7 @@ output "ec2_public_dns" {
 # SSH 접속 명령어
 output "ssh_command" {
   description = "SSH 접속 명령어"
-  value       = "ssh -i ~/.ssh/everybuddy-key.pem ubuntu@${aws_instance.backend.public_ip}"
+  value       = "ssh -i ~/.ssh/everybuddy-key.pem ubuntu@${aws_eip.backend.public_ip}"
 }
 
 # 전체 요약
@@ -55,7 +55,7 @@ output "summary" {
   value = {
     vpc_id            = aws_vpc.main.id
     ec2_id            = aws_instance.backend.id
-    public_ip         = aws_instance.backend.public_ip
+    public_ip         = aws_eip.backend.public_ip
     security_group_id = aws_security_group.backend.id
     key_name          = aws_key_pair.everybuddy.key_name
   }
