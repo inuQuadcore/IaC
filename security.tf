@@ -74,3 +74,98 @@ resource "aws_security_group_rule" "backend_egress" {
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.backend.id
 }
+
+# ============================================================
+# Security Group - Monitoring Server
+# ============================================================
+resource "aws_security_group" "monitoring" {
+  name        = "everybuddy-monitoring-sg"
+  description = "Security group for monitoring server"
+  vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name = "everybuddy-monitoring-sg"
+  }
+}
+
+# ============================================================
+# Monitoring Server Ingress Rules
+# ============================================================
+
+# SSH
+resource "aws_security_group_rule" "monitoring_ssh" {
+  type              = "ingress"
+  description       = "SSH access"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]  # TODO: 나중에 내 IP로 제한
+  security_group_id = aws_security_group.monitoring.id
+}
+
+# Grafana (3000)
+resource "aws_security_group_rule" "monitoring_grafana" {
+  type              = "ingress"
+  description       = "Grafana web UI"
+  from_port         = 3000
+  to_port           = 3000
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]  # TODO: 팀원 IP로 제한
+  security_group_id = aws_security_group.monitoring.id
+}
+
+# Prometheus (9090) - 선택적
+resource "aws_security_group_rule" "monitoring_prometheus" {
+  type              = "ingress"
+  description       = "Prometheus web UI"
+  from_port         = 9090
+  to_port           = 9090
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]  # TODO: 내 IP로 제한
+  security_group_id = aws_security_group.monitoring.id
+}
+
+# Loki (3100) - 백엔드 서버에서만 접근
+resource "aws_security_group_rule" "monitoring_loki" {
+  type                     = "ingress"
+  description              = "Loki push endpoint from backend"
+  from_port                = 3100
+  to_port                  = 3100
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend.id  # 백엔드 서버만 허용
+  security_group_id        = aws_security_group.monitoring.id
+}
+
+# Egress - 모든 아웃바운드 허용
+resource "aws_security_group_rule" "monitoring_egress" {
+  type              = "egress"
+  description       = "Allow all outbound traffic"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.monitoring.id
+}
+
+# Node Exporter (9100) - 모니터링 서버에서만 접근
+resource "aws_security_group_rule" "backend_node_exporter" {
+  type                     = "ingress"
+  description              = "Node Exporter metrics for Prometheus"
+  from_port                = 9100
+  to_port                  = 9100
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.monitoring.id  # 모니터링 서버만 허용
+  security_group_id        = aws_security_group.backend.id
+}
+
+# Spring Boot Actuator (8080) - 모니터링 서버에서 메트릭 수집
+# 이미 8080이 열려있으니 추가 규칙 불필요, 하지만 명시적으로 분리하려면:
+resource "aws_security_group_rule" "backend_actuator_prometheus" {
+  type                     = "ingress"
+  description              = "Spring Boot Actuator metrics for Prometheus"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.monitoring.id
+  security_group_id        = aws_security_group.backend.id
+}

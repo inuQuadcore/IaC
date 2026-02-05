@@ -57,6 +57,18 @@ resource "aws_subnet" "public" {
   }
 }
 
+# Public Subnet 2 - Monitoring
+resource "aws_subnet" "public_monitoring" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "ap-southeast-1a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "everybuddy-public-subnet-monitoring"
+  }
+}
+
 # ============================================================
 # Route Table (라우팅 테이블)
 # ============================================================
@@ -86,22 +98,29 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# 모니터링 서버 서브넷 - 라우팅 테이블 연결
+resource "aws_route_table_association" "public_monitoring" {
+  subnet_id      = aws_subnet.public_monitoring.id
+  route_table_id = aws_route_table.public.id
+}
+
+
 # ============================================================
 # EC2 Instance (가상 서버)
 # ============================================================
-# 실제 애플리케이션이 돌아가는 서버
+
+# EC2 Instance - Backend Server 
 resource "aws_instance" "backend" {
   # AMI: Amazon Machine Image (운영체제 이미지)
   ami           = "ami-0497a974f8d5dcef8"  # Ubuntu 24.04 LTS (Singapore)
   
   # 인스턴스 타입: 서버 사양 (CPU, 메모리)
-  # t3.micro = 2 vCPU, 1GB RAM (무료 티어)
-  instance_type = "t3.micro"
+  # t3.small = 2 vCPU, 2GB RAM
+  instance_type = "t3.small"
 
   # 네트워크 설정
-  subnet_id                   = aws_subnet.public.id  # 위에서 만든 서브넷에 배치
-  vpc_security_group_ids      = [aws_security_group.backend.id]  # 방화벽 규칙
-  associate_public_ip_address = true  # 공인 IP 자동 할당
+  subnet_id              = aws_subnet.public.id  # 위에서 만든 서브넷에 배치
+  vpc_security_group_ids = [aws_security_group.backend.id]  # 방화벽 규칙
   
   # SSH 접속용 키페어
   key_name = aws_key_pair.everybuddy.key_name
@@ -110,6 +129,23 @@ resource "aws_instance" "backend" {
     Name = "everybuddy-backend"
   }
 }
+
+# EC2 Instance - Monitoring Server 
+resource "aws_instance" "monitoring" {
+  ami           = "ami-0497a974f8d5dcef8"  # Ubuntu 24.04 LTS (Singapore)
+  instance_type = "t3.micro"
+
+  subnet_id                   = aws_subnet.public_monitoring.id
+  vpc_security_group_ids      = [aws_security_group.monitoring.id]
+  associate_public_ip_address = true
+  
+  key_name = aws_key_pair.everybuddy.key_name
+
+  tags = {
+    Name = "everybuddy-monitoring"
+  }
+}
+
 
 # ============================================================
 # SSH Key Pair (SSH 키페어)
@@ -124,4 +160,22 @@ resource "aws_key_pair" "everybuddy" {
   tags = {
     Name = "everybuddy-ssh-key"
   }
+}
+
+# ============================================================
+# Elastic IP (고정 IP)
+# ============================================================
+# 인스턴스 재시작해도 IP가 변하지 않음
+resource "aws_eip" "backend" {
+  domain = "vpc"
+
+  tags = {
+    Name = "everybuddy-backend-eip"
+  }
+}
+
+# Elastic IP와 EC2 인스턴스 연결
+resource "aws_eip_association" "backend" {
+  instance_id   = aws_instance.backend.id
+  allocation_id = aws_eip.backend.id
 }
