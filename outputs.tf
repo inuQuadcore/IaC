@@ -78,6 +78,22 @@ output "nat_gateway_ip" {
   value       = module.networking.nat_gateway_ip
 }
 
+# RDS
+output "rds_endpoint" {
+  description = "RDS endpoint (Spring Boot datasource url에 사용)"
+  value       = module.database.rds_endpoint
+}
+
+output "rds_host" {
+  description = "RDS host"
+  value       = module.database.rds_host
+}
+
+output "rds_db_name" {
+  description = "Database name"
+  value       = module.database.rds_db_name
+}
+
 # Summary
 output "summary" {
   description = "Infrastructure summary"

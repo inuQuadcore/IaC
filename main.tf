@@ -99,3 +99,24 @@ module "storage" {
   environment  = var.environment
   bucket_name  = var.files_bucket_name
 }
+
+# ============================================================
+# Database
+# RDS MySQL (Private DB Subnet)
+# ============================================================
+module "database" {
+  source       = "./modules/database"
+  project_name = var.project_name
+  vpc_id       = module.networking.vpc_id
+
+  private_db_subnet_ids = module.networking.private_db_subnet_ids
+
+  # 현재: backend EC2 SG만 허용
+  # 4단계(Spring Boot Private 전환) 이후: private app SG 추가 예정
+  allowed_sg_ids = [module.security.backend_sg_id]
+
+  db_name           = var.db_name
+  db_username       = var.db_username
+  db_password       = var.db_password
+  db_instance_class = var.db_instance_class
+}

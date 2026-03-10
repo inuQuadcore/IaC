@@ -33,3 +33,30 @@ variable "files_bucket_name" {
   type        = string
   default     = "everybuddy-files-prod-20250103"
 }
+
+# ── RDS ─────────────────────────────────────────────────────
+variable "db_name" {
+  description = "Database name"
+  type        = string
+  default     = "everybuddy"
+}
+
+variable "db_username" {
+  description = "RDS master username"
+  type        = string
+  default     = "admin"
+}
+
+# 비밀번호는 tfvars에 저장하지 않음
+# 실행 전 환경변수로 주입: export TF_VAR_db_password="your_password"
+variable "db_password" {
+  description = "RDS master password"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t3.micro"
+}
