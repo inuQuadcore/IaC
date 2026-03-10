@@ -28,6 +28,18 @@ variable "monitoring_instance_type" {
   default     = "t3.micro"
 }
 
+variable "bastion_instance_type" {
+  description = "EC2 instance type for Bastion server"
+  type        = string
+  default     = "t3.nano"
+}
+
+variable "domain_name" {
+  description = "Root domain name"
+  type        = string
+  default     = "everybuddy.cloud"
+}
+
 variable "files_bucket_name" {
   description = "S3 bucket name for file storage"
   type        = string

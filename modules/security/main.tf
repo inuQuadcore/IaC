@@ -143,3 +143,60 @@ resource "aws_security_group_rule" "monitoring_egress" {
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.monitoring.id
 }
+
+# ============================================================
+# Bastion Security Group
+# ============================================================
+resource "aws_security_group" "bastion" {
+  name        = "${var.project_name}-bastion-sg"
+  description = "Security group for Bastion server"
+  vpc_id      = var.vpc_id
+
+  tags = {
+    Name = "${var.project_name}-bastion-sg"
+  }
+}
+
+resource "aws_security_group_rule" "bastion_ssh" {
+  type              = "ingress"
+  description       = "SSH access from anywhere (restrict to your IP in production)"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_security_group_rule" "bastion_egress" {
+  type              = "egress"
+  description       = "Allow all outbound traffic"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.bastion.id
+}
+
+# ============================================================
+# Bastion → Backend/Monitoring SSH (Private 전환 대비)
+# 4단계에서 backend SSH 0.0.0.0/0 규칙 삭제 후 이 규칙으로 접근
+# ============================================================
+resource "aws_security_group_rule" "backend_ssh_from_bastion" {
+  type                     = "ingress"
+  description              = "SSH from Bastion"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+  security_group_id        = aws_security_group.backend.id
+}
+
+resource "aws_security_group_rule" "monitoring_ssh_from_bastion" {
+  type                     = "ingress"
+  description              = "SSH from Bastion"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+  security_group_id        = aws_security_group.monitoring.id
+}

@@ -45,3 +45,19 @@ variable "ami_id" {
   type        = string
   default     = "ami-0497a974f8d5dcef8"
 }
+
+variable "bastion_subnet_id" {
+  description = "Subnet ID for Bastion EC2 (public-b, AZ-b)"
+  type        = string
+}
+
+variable "bastion_sg_id" {
+  description = "Security group ID for Bastion EC2"
+  type        = string
+}
+
+variable "bastion_instance_type" {
+  description = "EC2 instance type for Bastion server"
+  type        = string
+  default     = "t3.nano"
+}

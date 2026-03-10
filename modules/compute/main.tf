@@ -48,3 +48,34 @@ resource "aws_eip_association" "backend" {
   instance_id   = aws_instance.backend.id
   allocation_id = aws_eip.backend.id
 }
+
+# ============================================================
+# Bastion Server (public-b, AZ-b)
+# Private EC2 접근을 위한 Jump Host
+# ============================================================
+resource "aws_instance" "bastion" {
+  ami           = var.ami_id
+  instance_type = var.bastion_instance_type
+
+  subnet_id                   = var.bastion_subnet_id
+  vpc_security_group_ids      = [var.bastion_sg_id]
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.everybuddy.key_name
+
+  tags = {
+    Name = "${var.project_name}-bastion"
+  }
+}
+
+resource "aws_eip" "bastion" {
+  domain = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-bastion-eip"
+  }
+}
+
+resource "aws_eip_association" "bastion" {
+  instance_id   = aws_instance.bastion.id
+  allocation_id = aws_eip.bastion.id
+}

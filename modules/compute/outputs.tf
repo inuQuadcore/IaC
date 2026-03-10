@@ -32,3 +32,13 @@ output "key_pair_name" {
   description = "SSH key pair name"
   value       = aws_key_pair.everybuddy.key_name
 }
+
+output "bastion_instance_id" {
+  description = "Bastion EC2 instance ID"
+  value       = aws_instance.bastion.id
+}
+
+output "bastion_public_ip" {
+  description = "Bastion EC2 Elastic IP"
+  value       = aws_eip.bastion.public_ip
+}

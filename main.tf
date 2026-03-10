@@ -84,9 +84,12 @@ module "compute" {
   backend_sg_id        = module.security.backend_sg_id
   monitoring_subnet_id = module.networking.public_subnet_ids["monitoring"]
   monitoring_sg_id     = module.security.monitoring_sg_id
+  bastion_subnet_id    = module.networking.public_subnet_ids["b"]
+  bastion_sg_id        = module.security.bastion_sg_id
 
   backend_instance_type    = var.backend_instance_type
   monitoring_instance_type = var.monitoring_instance_type
+  bastion_instance_type    = var.bastion_instance_type
 }
 
 # ============================================================
@@ -98,6 +101,20 @@ module "storage" {
   project_name = var.project_name
   environment  = var.environment
   bucket_name  = var.files_bucket_name
+}
+
+# ============================================================
+# Database
+# RDS MySQL (Private DB Subnet)
+# ============================================================
+# ============================================================
+# DNS
+# Route53 Hosted Zone (everybuddy.cloud)
+# ============================================================
+module "dns" {
+  source       = "./modules/dns"
+  project_name = var.project_name
+  domain_name  = var.domain_name
 }
 
 # ============================================================

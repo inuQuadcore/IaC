@@ -1,3 +1,14 @@
+# DNS
+output "route53_name_servers" {
+  description = "가비아 네임서버에 입력할 NS 레코드 4개"
+  value       = module.dns.name_servers
+}
+
+output "route53_zone_id" {
+  description = "Route53 Hosted Zone ID"
+  value       = module.dns.zone_id
+}
+
 # VPC
 output "vpc_id" {
   description = "VPC ID"
@@ -94,6 +105,27 @@ output "rds_db_name" {
   value       = module.database.rds_db_name
 }
 
+# EC2 - Bastion
+output "bastion_instance_id" {
+  description = "Bastion EC2 instance ID"
+  value       = module.compute.bastion_instance_id
+}
+
+output "bastion_public_ip" {
+  description = "Bastion EC2 Elastic IP"
+  value       = module.compute.bastion_public_ip
+}
+
+output "bastion_ssh_command" {
+  description = "SSH command for Bastion server"
+  value       = "ssh -i ./serverkey ubuntu@${module.compute.bastion_public_ip}"
+}
+
+output "ssh_via_bastion_backend" {
+  description = "SSH to backend via Bastion (ProxyJump)"
+  value       = "ssh -i ./serverkey -J ubuntu@${module.compute.bastion_public_ip} ubuntu@<backend-private-ip>"
+}
+
 # Summary
 output "summary" {
   description = "Infrastructure summary"
@@ -101,6 +133,7 @@ output "summary" {
     vpc_id        = module.networking.vpc_id
     backend_ip    = module.compute.backend_public_ip
     monitoring_ip = module.compute.monitoring_public_ip
+    bastion_ip    = module.compute.bastion_public_ip
     s3_bucket     = module.storage.bucket_id
     key_name      = module.compute.key_pair_name
   }
