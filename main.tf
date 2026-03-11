@@ -14,50 +14,20 @@ module "networking" {
   source       = "./modules/networking"
   project_name = var.project_name
 
-  # ── Public Subnets ──────────────────────────────────────────
-  # backend    (AZ-a): 기존 Backend EC2 임시 거주 + NAT GW + ALB
-  # monitoring (AZ-a): Monitoring EC2 (이전 없이 그대로 유지)
-  # b          (AZ-b): Bastion Server + ALB 멀티AZ용
   public_subnets = {
-    backend = {
-      cidr = "10.0.1.0/24"
-      az   = "ap-southeast-1a"
-    }
-    monitoring = {
-      cidr = "10.0.2.0/24"
-      az   = "ap-southeast-1a"
-    }
-    b = {
-      cidr = "10.0.3.0/24"
-      az   = "ap-southeast-1b"
-    }
+    backend = { cidr = "10.0.1.0/24", az = "ap-southeast-1a" }
+    monitoring = { cidr = "10.0.2.0/24", az = "ap-southeast-1a" }
+    b = { cidr = "10.0.3.0/24", az = "ap-southeast-1b" }
   }
 
-  # ── Private App Subnets ─────────────────────────────────────
-  # Spring Boot, FastAPI EC2가 올라갈 서브넷
   private_app_subnets = {
-    a = {
-      cidr = "10.0.11.0/24"
-      az   = "ap-southeast-1a"
-    }
-    b = {
-      cidr = "10.0.12.0/24"
-      az   = "ap-southeast-1b"
-    }
+    a = { cidr = "10.0.11.0/24", az = "ap-southeast-1a" }
+    b = { cidr = "10.0.12.0/24", az = "ap-southeast-1b" }
   }
 
-  # ── Private DB Subnets ──────────────────────────────────────
-  # a: RDS 실제 인스턴스
-  # b: RDS Subnet Group 요구사항용 (빈 서브넷)
   private_db_subnets = {
-    a = {
-      cidr = "10.0.21.0/24"
-      az   = "ap-southeast-1a"
-    }
-    b = {
-      cidr = "10.0.22.0/24"
-      az   = "ap-southeast-1b"
-    }
+    a = { cidr = "10.0.21.0/24", az = "ap-southeast-1a" }
+    b = { cidr = "10.0.22.0/24", az = "ap-southeast-1b" }
   }
 }
 
@@ -104,10 +74,6 @@ module "storage" {
 }
 
 # ============================================================
-# Database
-# RDS MySQL (Private DB Subnet)
-# ============================================================
-# ============================================================
 # DNS
 # Route53 Hosted Zone (everybuddy.cloud)
 # ============================================================
@@ -115,6 +81,33 @@ module "dns" {
   source       = "./modules/dns"
   project_name = var.project_name
   domain_name  = var.domain_name
+}
+
+# ============================================================
+# ALB
+# Application Load Balancer + ACM + Route53 A record
+# ============================================================
+module "alb" {
+  source       = "./modules/alb"
+  project_name = var.project_name
+  vpc_id       = module.networking.vpc_id
+
+  public_subnet_ids = [
+    module.networking.public_subnet_ids["backend"],
+    module.networking.public_subnet_ids["b"],
+  ]
+
+  domain_name   = var.domain_name
+  zone_id       = module.dns.zone_id
+  backend_sg_id = module.security.backend_sg_id
+}
+
+# ALB Target Group에 현재 Backend EC2 등록
+# 4단계에서 Private EC2로 교체 예정
+resource "aws_lb_target_group_attachment" "backend" {
+  target_group_arn = module.alb.target_group_arn
+  target_id        = module.compute.backend_instance_id
+  port             = 8080
 }
 
 # ============================================================

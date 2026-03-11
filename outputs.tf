@@ -126,6 +126,17 @@ output "ssh_via_bastion_backend" {
   value       = "ssh -i ./serverkey -J ubuntu@${module.compute.bastion_public_ip} ubuntu@<backend-private-ip>"
 }
 
+# ALB
+output "alb_dns_name" {
+  description = "ALB DNS name"
+  value       = module.alb.alb_dns_name
+}
+
+output "api_url" {
+  description = "API endpoint (HTTPS)"
+  value       = module.alb.api_url
+}
+
 # Summary
 output "summary" {
   description = "Infrastructure summary"
