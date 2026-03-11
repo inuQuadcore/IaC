@@ -24,7 +24,15 @@
       "Bash(ssh -i ~/.ssh/serverkey -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@13.250.55.151 'NOW=$\\(date +%s%N\\); START=$\\(\\(NOW - 300000000000\\)\\); curl -sG \"\"http://localhost:3100/loki/api/v1/query_range\"\" --data-urlencode \"\"query={job=~\\\\\"\".+\\\\\"\"}\"\" --data-urlencode \"\"start=$START\"\" --data-urlencode \"\"end=$NOW\"\" --data-urlencode \"\"limit=3\"\" 2>&1')",
       "Bash(echo \"# S3 리소스는 modules/storage/ 로 이동됨:*)",
       "Bash(terraform init -upgrade)",
-      "Bash(cmd.exe /c \"where terraform\")"
+      "Bash(cmd.exe /c \"where terraform\")",
+      "Bash(python -c \":*)",
+      "Read(//c/Users/dhwjd/OneDrive/Desktop/everybuddy/Infra/**)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File /tmp/fix_outputs2.ps1)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File /tmp/check_outputs.ps1)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File /tmp/debug_outputs.ps1)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File /tmp/debug2.ps1)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File /tmp/debug3.ps1)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File /tmp/fix_summary.ps1)"
     ]
   }
 }

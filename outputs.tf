@@ -1,4 +1,4 @@
-# DNS
+﻿# DNS
 output "route53_name_servers" {
   description = "가비아 네임서버에 입력할 NS 레코드 4개"
   value       = module.dns.name_servers
@@ -18,22 +18,6 @@ output "vpc_id" {
 output "vpc_cidr" {
   description = "VPC CIDR block"
   value       = module.networking.vpc_cidr
-}
-
-# EC2 - Backend
-output "backend_instance_id" {
-  description = "Backend EC2 instance ID"
-  value       = module.compute.backend_instance_id
-}
-
-output "backend_public_ip" {
-  description = "Backend EC2 Elastic IP"
-  value       = module.compute.backend_public_ip
-}
-
-output "ssh_command" {
-  description = "SSH command for backend"
-  value       = "ssh -i ./serverkey ubuntu@${module.compute.backend_public_ip}"
 }
 
 # EC2 - Monitoring
@@ -122,8 +106,19 @@ output "bastion_ssh_command" {
 }
 
 output "ssh_via_bastion_backend" {
-  description = "SSH to backend via Bastion (ProxyJump)"
-  value       = "ssh -i ./serverkey -J ubuntu@${module.compute.bastion_public_ip} ubuntu@<backend-private-ip>"
+  description = "SSH to Private Backend via Bastion (ProxyJump)"
+  value       = "ssh -i ./serverkey -J ubuntu@${module.compute.bastion_public_ip} ubuntu@${module.compute.private_backend_private_ip}"
+}
+
+# EC2 - Private Backend
+output "private_backend_instance_id" {
+  description = "Private Backend EC2 instance ID"
+  value       = module.compute.private_backend_instance_id
+}
+
+output "private_backend_private_ip" {
+  description = "Private Backend EC2 private IP (GitHub Secret EC2_HOST 값)"
+  value       = module.compute.private_backend_private_ip
 }
 
 # ALB
@@ -142,7 +137,6 @@ output "summary" {
   description = "Infrastructure summary"
   value = {
     vpc_id        = module.networking.vpc_id
-    backend_ip    = module.compute.backend_public_ip
     monitoring_ip = module.compute.monitoring_public_ip
     bastion_ip    = module.compute.bastion_public_ip
     s3_bucket     = module.storage.bucket_id

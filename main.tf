@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # Provider
 # ============================================================
 provider "aws" {
@@ -8,16 +8,15 @@ provider "aws" {
 
 # ============================================================
 # Networking
-# VPC, Internet Gateway, Public Subnets, Route Tables
 # ============================================================
 module "networking" {
   source       = "./modules/networking"
   project_name = var.project_name
 
   public_subnets = {
-    backend = { cidr = "10.0.1.0/24", az = "ap-southeast-1a" }
+    backend    = { cidr = "10.0.1.0/24", az = "ap-southeast-1a" }
     monitoring = { cidr = "10.0.2.0/24", az = "ap-southeast-1a" }
-    b = { cidr = "10.0.3.0/24", az = "ap-southeast-1b" }
+    b          = { cidr = "10.0.3.0/24", az = "ap-southeast-1b" }
   }
 
   private_app_subnets = {
@@ -50,12 +49,14 @@ module "compute" {
 
   public_key = file("${path.root}/serverkey.pub")
 
-  backend_subnet_id    = module.networking.public_subnet_ids["backend"]
-  backend_sg_id        = module.security.backend_sg_id
   monitoring_subnet_id = module.networking.public_subnet_ids["monitoring"]
   monitoring_sg_id     = module.security.monitoring_sg_id
   bastion_subnet_id    = module.networking.public_subnet_ids["b"]
   bastion_sg_id        = module.security.bastion_sg_id
+
+  # Private Backend (4단계)
+  private_backend_subnet_id = module.networking.private_app_subnet_ids["a"]
+  private_backend_sg_id     = module.security.private_backend_sg_id
 
   backend_instance_type    = var.backend_instance_type
   monitoring_instance_type = var.monitoring_instance_type
@@ -102,12 +103,22 @@ module "alb" {
   backend_sg_id = module.security.backend_sg_id
 }
 
-# ALB Target Group에 현재 Backend EC2 등록
-# 4단계에서 Private EC2로 교체 예정
+# ALB Target Group — Private Backend EC2 등록
 resource "aws_lb_target_group_attachment" "backend" {
   target_group_arn = module.alb.target_group_arn
-  target_id        = module.compute.backend_instance_id
+  target_id        = module.compute.private_backend_instance_id
   port             = 8080
+}
+
+# ALB SG → Private Backend EC2 :8080 허용
+resource "aws_security_group_rule" "private_backend_from_alb" {
+  type                     = "ingress"
+  description              = "Spring Boot from ALB"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = module.alb.alb_sg_id
+  security_group_id        = module.security.private_backend_sg_id
 }
 
 # ============================================================
@@ -121,9 +132,11 @@ module "database" {
 
   private_db_subnet_ids = module.networking.private_db_subnet_ids
 
-  # 현재: backend EC2 SG만 허용
-  # 4단계(Spring Boot Private 전환) 이후: private app SG 추가 예정
-  allowed_sg_ids = [module.security.backend_sg_id]
+  # map 형태로 전달 (for_each 키가 정적이라 plan/apply 에러 없음)
+  allowed_sg_ids = {
+    backend         = module.security.backend_sg_id
+    private_backend = module.security.private_backend_sg_id
+  }
 
   db_name           = var.db_name
   db_username       = var.db_username

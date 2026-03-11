@@ -8,16 +8,6 @@ variable "public_key" {
   type        = string
 }
 
-variable "backend_subnet_id" {
-  description = "Subnet ID for backend EC2"
-  type        = string
-}
-
-variable "backend_sg_id" {
-  description = "Security group ID for backend EC2"
-  type        = string
-}
-
 variable "monitoring_subnet_id" {
   description = "Subnet ID for monitoring EC2"
   type        = string
@@ -60,4 +50,14 @@ variable "bastion_instance_type" {
   description = "EC2 instance type for Bastion server"
   type        = string
   default     = "t3.nano"
+}
+
+variable "private_backend_subnet_id" {
+  description = "Subnet ID for Private Backend EC2 (private-app-a, AZ-a)"
+  type        = string
+}
+
+variable "private_backend_sg_id" {
+  description = "Security group ID for Private Backend EC2"
+  type        = string
 }

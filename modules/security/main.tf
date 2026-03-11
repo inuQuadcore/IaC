@@ -200,3 +200,38 @@ resource "aws_security_group_rule" "monitoring_ssh_from_bastion" {
   source_security_group_id = aws_security_group.bastion.id
   security_group_id        = aws_security_group.monitoring.id
 }
+
+# ============================================================
+# Private Backend Security Group
+# 8080: ALB SG에서만 (root main.tf에서 규칙 추가)
+# 22:   Bastion SG에서만
+# ============================================================
+resource "aws_security_group" "private_backend" {
+  name        = "${var.project_name}-private-backend-sg"
+  description = "Security group for Private Backend EC2"
+  vpc_id      = var.vpc_id
+
+  tags = {
+    Name = "${var.project_name}-private-backend-sg"
+  }
+}
+
+resource "aws_security_group_rule" "private_backend_ssh_from_bastion" {
+  type                     = "ingress"
+  description              = "SSH from Bastion"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+  security_group_id        = aws_security_group.private_backend.id
+}
+
+resource "aws_security_group_rule" "private_backend_egress" {
+  type              = "egress"
+  description       = "Allow all outbound traffic"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.private_backend.id
+}

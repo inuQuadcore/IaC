@@ -14,8 +14,8 @@ variable "private_db_subnet_ids" {
 }
 
 variable "allowed_sg_ids" {
-  description = "RDS 3306 접근을 허용할 Security Group ID 목록"
-  type        = list(string)
+  description = "RDS 3306 접근을 허용할 Security Group ID 맵 (key=이름, value=sg_id)"
+  type        = map(string)
 }
 
 variable "db_name" {

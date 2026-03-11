@@ -1,18 +1,3 @@
-output "backend_instance_id" {
-  description = "Backend EC2 instance ID"
-  value       = aws_instance.backend.id
-}
-
-output "backend_public_ip" {
-  description = "Backend EC2 Elastic IP"
-  value       = aws_eip.backend.public_ip
-}
-
-output "backend_public_dns" {
-  description = "Backend EC2 public DNS"
-  value       = aws_instance.backend.public_dns
-}
-
 output "monitoring_instance_id" {
   description = "Monitoring EC2 instance ID"
   value       = aws_instance.monitoring.id
@@ -41,4 +26,14 @@ output "bastion_instance_id" {
 output "bastion_public_ip" {
   description = "Bastion EC2 Elastic IP"
   value       = aws_eip.bastion.public_ip
+}
+
+output "private_backend_instance_id" {
+  description = "Private Backend EC2 instance ID"
+  value       = aws_instance.private_backend.id
+}
+
+output "private_backend_private_ip" {
+  description = "Private Backend EC2 private IP"
+  value       = aws_instance.private_backend.private_ip
 }

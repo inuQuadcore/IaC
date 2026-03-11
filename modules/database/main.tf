@@ -11,10 +11,10 @@ resource "aws_security_group" "rds" {
   }
 }
 
-# 허용할 SG 목록을 for_each로 처리
-# → 현재: backend SG / 4단계 이후: private app SG 추가
+# 허용할 SG 목록을 for_each로 처리 (map: 키가 정적이라 apply-time 에러 없음)
+# → 현재: backend / private_backend SG
 resource "aws_security_group_rule" "rds_mysql" {
-  for_each = toset(var.allowed_sg_ids)
+  for_each = var.allowed_sg_ids
 
   type                     = "ingress"
   description              = "MySQL access from app servers"
