@@ -235,3 +235,36 @@ resource "aws_security_group_rule" "private_backend_egress" {
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.private_backend.id
 }
+
+# Monitoring → Private Backend: Node Exporter (9100)
+resource "aws_security_group_rule" "private_backend_node_exporter" {
+  type                     = "ingress"
+  description              = "Node Exporter metrics for Prometheus"
+  from_port                = 9100
+  to_port                  = 9100
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.monitoring.id
+  security_group_id        = aws_security_group.private_backend.id
+}
+
+# Monitoring → Private Backend: Spring Boot Actuator (8080)
+resource "aws_security_group_rule" "private_backend_actuator_prometheus" {
+  type                     = "ingress"
+  description              = "Spring Boot Actuator metrics for Prometheus"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.monitoring.id
+  security_group_id        = aws_security_group.private_backend.id
+}
+
+# Private Backend → Monitoring: Loki 로그 푸시 (3100)
+resource "aws_security_group_rule" "private_backend_to_loki" {
+  type                     = "ingress"
+  description              = "Loki push endpoint from private backend"
+  from_port                = 3100
+  to_port                  = 3100
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.private_backend.id
+  security_group_id        = aws_security_group.monitoring.id
+}
