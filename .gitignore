@@ -21,6 +21,9 @@ awscliv2.zip
 .vscode/
 .idea/
 
+# Claude Code
+.claude/
+
 # Serverkey
 serverkey
 serverkey.pub
