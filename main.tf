@@ -1,181 +1,145 @@
+﻿# ============================================================
+# Provider
 # ============================================================
-# Provider 설정
-# ============================================================
-# AWS와 통신하기 위한 설정
-# - profile: AWS CLI 프로파일 이름 (기본값: "default")
-# - region: 리소스를 생성할 AWS 리전
 provider "aws" {
   profile = "default"
-  region  = "ap-southeast-1"  # 싱가포르
+  region  = var.aws_region
 }
 
 # ============================================================
-# VPC (Virtual Private Cloud)
+# Networking
 # ============================================================
-# 여러분만의 가상 네트워크 공간
-# - 10.0.0.0/16 = 10.0.0.0 ~ 10.0.255.255 (65,536개 IP 주소)
-# - enable_dns_hostnames: EC2에 DNS 이름 자동 할당
-# - enable_dns_support: VPC 내부 DNS 쿼리 지원
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+module "networking" {
+  source       = "./modules/networking"
+  project_name = var.project_name
 
-  tags = {
-    Name = "everybuddy-vpc"
+  public_subnets = {
+    backend    = { cidr = "10.0.1.0/24", az = "ap-southeast-1a" }
+    monitoring = { cidr = "10.0.2.0/24", az = "ap-southeast-1a" }
+    b          = { cidr = "10.0.3.0/24", az = "ap-southeast-1b" }
+  }
+
+  private_app_subnets = {
+    a = { cidr = "10.0.11.0/24", az = "ap-southeast-1a" }
+    b = { cidr = "10.0.12.0/24", az = "ap-southeast-1b" }
+  }
+
+  private_db_subnets = {
+    a = { cidr = "10.0.21.0/24", az = "ap-southeast-1a" }
+    b = { cidr = "10.0.22.0/24", az = "ap-southeast-1b" }
   }
 }
 
 # ============================================================
-# Internet Gateway (인터넷 게이트웨이)
+# Security Groups
 # ============================================================
-# VPC와 인터넷을 연결하는 통로
-# 이게 없으면 EC2가 인터넷에 접속할 수 없음
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id  # 위에서 만든 VPC에 연결
+module "security" {
+  source       = "./modules/security"
+  project_name = var.project_name
+  vpc_id       = module.networking.vpc_id
+}
 
-  tags = {
-    Name = "everybuddy-igw"
+# ============================================================
+# Compute
+# EC2 Instances, Key Pair, Elastic IP
+# ============================================================
+module "compute" {
+  source       = "./modules/compute"
+  project_name = var.project_name
+
+  public_key = file("${path.root}/serverkey.pub")
+
+  monitoring_subnet_id = module.networking.public_subnet_ids["monitoring"]
+  monitoring_sg_id     = module.security.monitoring_sg_id
+  bastion_subnet_id    = module.networking.public_subnet_ids["b"]
+  bastion_sg_id        = module.security.bastion_sg_id
+
+  # Private Backend (4단계)
+  private_backend_subnet_id = module.networking.private_app_subnet_ids["a"]
+  private_backend_sg_id     = module.security.private_backend_sg_id
+
+  backend_instance_type    = var.backend_instance_type
+  monitoring_instance_type = var.monitoring_instance_type
+  bastion_instance_type    = var.bastion_instance_type
+}
+
+# ============================================================
+# Storage
+# S3 Bucket (file storage)
+# ============================================================
+module "storage" {
+  source       = "./modules/storage"
+  project_name = var.project_name
+  environment  = var.environment
+  bucket_name  = var.files_bucket_name
+}
+
+# ============================================================
+# DNS
+# Route53 Hosted Zone (everybuddy.cloud)
+# ============================================================
+module "dns" {
+  source       = "./modules/dns"
+  project_name = var.project_name
+  domain_name  = var.domain_name
+}
+
+# ============================================================
+# ALB
+# Application Load Balancer + ACM + Route53 A record
+# ============================================================
+module "alb" {
+  source       = "./modules/alb"
+  project_name = var.project_name
+  vpc_id       = module.networking.vpc_id
+
+  public_subnet_ids = [
+    module.networking.public_subnet_ids["backend"],
+    module.networking.public_subnet_ids["b"],
+  ]
+
+  domain_name   = var.domain_name
+  zone_id       = module.dns.zone_id
+  backend_sg_id = module.security.backend_sg_id
+}
+
+# ALB Target Group — Private Backend EC2 등록
+resource "aws_lb_target_group_attachment" "backend" {
+  target_group_arn = module.alb.target_group_arn
+  target_id        = module.compute.private_backend_instance_id
+  port             = 8080
+}
+
+# ALB SG → Private Backend EC2 :8080 허용
+resource "aws_security_group_rule" "private_backend_from_alb" {
+  type                     = "ingress"
+  description              = "Spring Boot from ALB"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = module.alb.alb_sg_id
+  security_group_id        = module.security.private_backend_sg_id
+}
+
+# ============================================================
+# Database
+# RDS MySQL (Private DB Subnet)
+# ============================================================
+module "database" {
+  source       = "./modules/database"
+  project_name = var.project_name
+  vpc_id       = module.networking.vpc_id
+
+  private_db_subnet_ids = module.networking.private_db_subnet_ids
+
+  # map 형태로 전달 (for_each 키가 정적이라 plan/apply 에러 없음)
+  allowed_sg_ids = {
+    backend         = module.security.backend_sg_id
+    private_backend = module.security.private_backend_sg_id
   }
-}
 
-# ============================================================
-# Public Subnet (퍼블릭 서브넷)
-# ============================================================
-# VPC 내부의 네트워크 구역
-# - 10.0.1.0/24 = 10.0.1.0 ~ 10.0.1.255 (256개 IP)
-# - availability_zone: 물리적 데이터센터 위치
-# - map_public_ip_on_launch: EC2 생성 시 자동으로 Public IP 부여
-resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "ap-southeast-1a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "everybuddy-public-subnet"
-  }
-}
-
-# Public Subnet 2 - Monitoring
-resource "aws_subnet" "public_monitoring" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "ap-southeast-1a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "everybuddy-public-subnet-monitoring"
-  }
-}
-
-# ============================================================
-# Route Table (라우팅 테이블)
-# ============================================================
-# 네트워크 트래픽을 어디로 보낼지 결정하는 규칙
-# - 0.0.0.0/0 = 모든 인터넷 트래픽
-# - gateway_id = 인터넷 게이트웨이로 전달
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"           # 목적지: 모든 인터넷
-    gateway_id = aws_internet_gateway.main.id  # 경로: IGW 통과
-  }
-
-  tags = {
-    Name = "everybuddy-public-rt"
-  }
-}
-
-# ============================================================
-# Route Table Association (라우팅 테이블 연결)
-# ============================================================
-# 서브넷과 라우팅 테이블을 연결
-# "이 서브넷은 이 라우팅 규칙을 따른다"
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
-  route_table_id = aws_route_table.public.id
-}
-
-# 모니터링 서버 서브넷 - 라우팅 테이블 연결
-resource "aws_route_table_association" "public_monitoring" {
-  subnet_id      = aws_subnet.public_monitoring.id
-  route_table_id = aws_route_table.public.id
-}
-
-
-# ============================================================
-# EC2 Instance (가상 서버)
-# ============================================================
-
-# EC2 Instance - Backend Server 
-resource "aws_instance" "backend" {
-  # AMI: Amazon Machine Image (운영체제 이미지)
-  ami           = "ami-0497a974f8d5dcef8"  # Ubuntu 24.04 LTS (Singapore)
-  
-  # 인스턴스 타입: 서버 사양 (CPU, 메모리)
-  # t3.small = 2 vCPU, 2GB RAM
-  instance_type = "t3.small"
-
-  # 네트워크 설정
-  subnet_id              = aws_subnet.public.id  # 위에서 만든 서브넷에 배치
-  vpc_security_group_ids = [aws_security_group.backend.id]  # 방화벽 규칙
-  
-  # SSH 접속용 키페어
-  key_name = aws_key_pair.everybuddy.key_name
-
-  tags = {
-    Name = "everybuddy-backend"
-  }
-}
-
-# EC2 Instance - Monitoring Server 
-resource "aws_instance" "monitoring" {
-  ami           = "ami-0497a974f8d5dcef8"  # Ubuntu 24.04 LTS (Singapore)
-  instance_type = "t3.micro"
-
-  subnet_id                   = aws_subnet.public_monitoring.id
-  vpc_security_group_ids      = [aws_security_group.monitoring.id]
-  associate_public_ip_address = true
-  
-  key_name = aws_key_pair.everybuddy.key_name
-
-  tags = {
-    Name = "everybuddy-monitoring"
-  }
-}
-
-
-# ============================================================
-# SSH Key Pair (SSH 키페어)
-# ============================================================
-# EC2에 SSH로 접속하기 위한 키
-# - serverkey.pub (공개키)를 AWS에 등록
-# - serverkey (개인키)는 로컬에만 보관
-resource "aws_key_pair" "everybuddy" {
-  key_name   = "server-key"
-  public_key = file("${path.module}/serverkey.pub")  # ⭐ 이렇게 수정!
-  
-  tags = {
-    Name = "everybuddy-ssh-key"
-  }
-}
-
-# ============================================================
-# Elastic IP (고정 IP)
-# ============================================================
-# 인스턴스 재시작해도 IP가 변하지 않음
-resource "aws_eip" "backend" {
-  domain = "vpc"
-
-  tags = {
-    Name = "everybuddy-backend-eip"
-  }
-}
-
-# Elastic IP와 EC2 인스턴스 연결
-resource "aws_eip_association" "backend" {
-  instance_id   = aws_instance.backend.id
-  allocation_id = aws_eip.backend.id
+  db_name           = var.db_name
+  db_username       = var.db_username
+  db_password       = var.db_password
+  db_instance_class = var.db_instance_class
 }
