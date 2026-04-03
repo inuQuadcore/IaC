@@ -29,8 +29,8 @@ AWS 기반 everybuddy 서비스 인프라를 Terraform으로 관리하는 레포
               ▼                       ▼
    ┌─────────────────┐    ┌─────────────────────┐
    │   ALB            │    │  Bastion EC2         │
-   │  everybuddy-alb  │    │  47.130.252.75       │
-   │  (internet-facing│    │  public-b / AZ-b     │
+   │  everybuddy-alb  │    │  public-b / AZ-b     │
+   │  (internet-facing│    │                      │
    │   AZ-a + AZ-b)  │    │  t3.nano             │
    └────────┬────────┘    └──────────┬──────────┘
             │                        │
@@ -42,7 +42,7 @@ AWS 기반 everybuddy 서비스 인프라를 Terraform으로 관리하는 레포
    │         10.0.11.0/24 (AZ-a)             │
    │                                          │
    │   EC2 everybuddy-private-backend         │
-   │   10.0.11.108 / t3.small                │
+   │   t3.small                              │
    │   Spring Boot :8080                      │
    │   Node Exporter :9100                    │
    │   Promtail → Loki                        │
@@ -66,7 +66,7 @@ AWS 기반 everybuddy 서비스 인프라를 Terraform으로 관리하는 레포
    │  Public Subnet 10.0.2.0/24 (AZ-a)│
    │                                  │
    │  EC2 everybuddy-monitoring        │
-   │  13.250.55.151 / t3.micro        │
+   │  t3.micro                        │
    │  ├── Grafana      :3000          │
    │  ├── Prometheus   :9090          │
    │  └── Loki         :3100          │
@@ -81,9 +81,9 @@ AWS 기반 everybuddy 서비스 인프라를 Terraform으로 관리하는 레포
 
 | 이름 | 타입 | IP | 서브넷 | 역할 |
 |------|------|----|--------|------|
-| everybuddy-private-backend | t3.small | 10.0.11.108 (private) | private-app-a | Spring Boot API 서버 |
-| everybuddy-monitoring | t3.micro | 13.250.55.151 (public) | public-monitoring | Grafana / Prometheus / Loki |
-| everybuddy-bastion | t3.nano | 47.130.252.75 (public) | public-b | SSH 접근 및 CI/CD 게이트웨이 |
+| everybuddy-private-backend | t3.small | private | private-app-a | Spring Boot API 서버 |
+| everybuddy-monitoring | t3.micro | public | public-monitoring | Grafana / Prometheus / Loki |
+| everybuddy-bastion | t3.nano | public | public-b | SSH 접근 및 CI/CD 게이트웨이 |
 
 ### 네트워크
 
@@ -97,33 +97,31 @@ AWS 기반 everybuddy 서비스 인프라를 Terraform으로 관리하는 레포
 | Subnet (private-app-b) | - | 10.0.12.0/24, AZ-b |
 | Subnet (private-db-a) | - | 10.0.21.0/24, AZ-a |
 | Subnet (private-db-b) | - | 10.0.22.0/24, AZ-b |
-| NAT Gateway | - | EIP: 47.130.218.236, public-backend AZ-a |
+| NAT Gateway | - | public-backend AZ-a |
 
 ### ALB / DNS / 인증서
 
 | 리소스 | 값 |
 |--------|-----|
 | ALB | everybuddy-alb (internet-facing, AZ-a + AZ-b) |
-| ALB DNS | everybuddy-alb-2066495541.ap-southeast-1.elb.amazonaws.com |
 | 도메인 | api.everybuddy.cloud → ALB Alias |
 | ACM | everybuddy.cloud (ISSUED) |
-| Route53 Zone | everybuddy.cloud (Z101242833QT25CARKQBT) |
+| Route53 Zone | everybuddy.cloud |
 
 ### RDS
 
 | 항목 | 값 |
 |------|-----|
 | Identifier | everybuddy-mysql |
-| Engine | MySQL 8.0.44 |
+| Engine | MySQL 8.0 |
 | Class | db.t3.micro |
-| Endpoint | everybuddy-mysql.cno2sciake0k.ap-southeast-1.rds.amazonaws.com:3306 |
 | Subnet | private-db-a (AZ-a) |
 
 ### S3
 
 | 버킷 | 용도 |
 |------|------|
-| everybuddy-files-prod-20250103 | 파일 업로드/다운로드 스토리지 |
+| everybuddy-files (prod) | 파일 업로드/다운로드 스토리지 |
 | everybuddy-terraform-state | Terraform Remote Backend State |
 
 ---
