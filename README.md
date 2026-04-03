@@ -1,0 +1,174 @@
+# everybuddy Infra
+
+AWS 기반 everybuddy 서비스 인프라를 Terraform으로 관리하는 레포지토리입니다.
+
+---
+
+## 최신 패치 — v2.6.1
+
+**날짜:** 2026-03-18 · **커밋:** `9ae62b2`
+
+🔒 `.claude/settings.local.json`에 서버 IP 등 민감 정보 포함 확인 → git tracking 제거, `.gitignore`에 `.claude/` 추가
+
+> 전체 변경 이력은 [docs/](./docs/) 참고
+
+---
+
+## 인프라 구조
+
+**Provider:** AWS ap-southeast-1 (Singapore)
+**도메인:** everybuddy.cloud
+
+```
+                        인터넷
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+        HTTPS (443)              SSH (22)
+              │                       │
+              ▼                       ▼
+   ┌─────────────────┐    ┌─────────────────────┐
+   │   ALB            │    │  Bastion EC2         │
+   │  everybuddy-alb  │    │  47.130.252.75       │
+   │  (internet-facing│    │  public-b / AZ-b     │
+   │   AZ-a + AZ-b)  │    │  t3.nano             │
+   └────────┬────────┘    └──────────┬──────────┘
+            │                        │
+     HTTP:8080                 SSH ProxyJump
+            │                        │
+            ▼                        ▼
+   ┌──────────────────────────────────────────┐
+   │         Private App Subnet               │
+   │         10.0.11.0/24 (AZ-a)             │
+   │                                          │
+   │   EC2 everybuddy-private-backend         │
+   │   10.0.11.108 / t3.small                │
+   │   Spring Boot :8080                      │
+   │   Node Exporter :9100                    │
+   │   Promtail → Loki                        │
+   └───────────┬──────────────────────────────┘
+               │
+        ┌──────┴──────┐
+        │             │
+    MySQL:3306    NAT GW → 인터넷
+        │         (DockerHub, S3, Firebase)
+        ▼
+   ┌──────────────────────────┐
+   │  Private DB Subnet       │
+   │  10.0.21.0/24 (AZ-a)    │
+   │                          │
+   │  RDS everybuddy-mysql    │
+   │  MySQL 8.0 / db.t3.micro │
+   └──────────────────────────┘
+
+
+   ┌──────────────────────────────────┐
+   │  Public Subnet 10.0.2.0/24 (AZ-a)│
+   │                                  │
+   │  EC2 everybuddy-monitoring        │
+   │  13.250.55.151 / t3.micro        │
+   │  ├── Grafana      :3000          │
+   │  ├── Prometheus   :9090          │
+   │  └── Loki         :3100          │
+   └──────────────────────────────────┘
+```
+
+---
+
+## 리소스 목록
+
+### EC2
+
+| 이름 | 타입 | IP | 서브넷 | 역할 |
+|------|------|----|--------|------|
+| everybuddy-private-backend | t3.small | 10.0.11.108 (private) | private-app-a | Spring Boot API 서버 |
+| everybuddy-monitoring | t3.micro | 13.250.55.151 (public) | public-monitoring | Grafana / Prometheus / Loki |
+| everybuddy-bastion | t3.nano | 47.130.252.75 (public) | public-b | SSH 접근 및 CI/CD 게이트웨이 |
+
+### 네트워크
+
+| 리소스 | 이름 | CIDR / 값 |
+|--------|------|-----------|
+| VPC | everybuddy-vpc | 10.0.0.0/16 |
+| Subnet (public-backend) | - | 10.0.1.0/24, AZ-a |
+| Subnet (public-monitoring) | - | 10.0.2.0/24, AZ-a |
+| Subnet (public-b) | - | 10.0.3.0/24, AZ-b |
+| Subnet (private-app-a) | - | 10.0.11.0/24, AZ-a |
+| Subnet (private-app-b) | - | 10.0.12.0/24, AZ-b |
+| Subnet (private-db-a) | - | 10.0.21.0/24, AZ-a |
+| Subnet (private-db-b) | - | 10.0.22.0/24, AZ-b |
+| NAT Gateway | - | EIP: 47.130.218.236, public-backend AZ-a |
+
+### ALB / DNS / 인증서
+
+| 리소스 | 값 |
+|--------|-----|
+| ALB | everybuddy-alb (internet-facing, AZ-a + AZ-b) |
+| ALB DNS | everybuddy-alb-2066495541.ap-southeast-1.elb.amazonaws.com |
+| 도메인 | api.everybuddy.cloud → ALB Alias |
+| ACM | everybuddy.cloud (ISSUED) |
+| Route53 Zone | everybuddy.cloud (Z101242833QT25CARKQBT) |
+
+### RDS
+
+| 항목 | 값 |
+|------|-----|
+| Identifier | everybuddy-mysql |
+| Engine | MySQL 8.0.44 |
+| Class | db.t3.micro |
+| Endpoint | everybuddy-mysql.cno2sciake0k.ap-southeast-1.rds.amazonaws.com:3306 |
+| Subnet | private-db-a (AZ-a) |
+
+### S3
+
+| 버킷 | 용도 |
+|------|------|
+| everybuddy-files-prod-20250103 | 파일 업로드/다운로드 스토리지 |
+| everybuddy-terraform-state | Terraform Remote Backend State |
+
+---
+
+## 모듈 구조
+
+```
+modules/
+├── networking/   # VPC, Subnet, IGW, NAT GW, Route Table
+├── security/     # Security Groups
+├── compute/      # EC2, Key Pair, EIP
+├── storage/      # S3
+├── database/     # RDS, DB Subnet Group
+├── dns/          # Route53 Hosted Zone
+└── alb/          # ALB, ACM, Target Group, Listeners, Route53 A Record
+```
+
+---
+
+## CI/CD
+
+GitHub Actions → Bastion ProxyJump → Private Backend
+
+```
+Push to main
+  └── GitHub Actions
+        ├── Docker build & push (Docker Hub)
+        ├── SCP docker-compose.yml → Bastion → Private Backend
+        └── SSH → Bastion → Private Backend → docker compose up -d
+```
+
+---
+
+## 패치 이력
+
+| 버전 | 날짜 | 내용 |
+|------|------|------|
+| [v2.6.1](./docs/v2.6.1.md) | 2026-03-18 | 보안: .claude/ gitignore 처리 |
+| [v2.6.0](./docs/v2.6.0.md) | 2026-03-13 | S3 Remote Backend 설정 |
+| [v2.5.0](./docs/v2.5.0.md) | 2026-03-13 | 모니터링 SG 보완 |
+| [v2.4.0](./docs/v2.4.0.md) | 2026-03-11 | 백엔드 서버 Private 전환 |
+| [v2.3.0](./docs/v2.3.0.md) | 2026-03-11 | ALB + ACM (HTTPS) 구성 |
+| [v2.2.0](./docs/v2.2.0.md) | 2026-03-10 | Bastion 서버 + Route53 구성 |
+| [v2.1.0](./docs/v2.1.0.md) | 2026-03-10 | RDS MySQL 구성 |
+| [v2.0.0](./docs/v2.0.0.md) | 2026-03-10 | Terraform 모듈화 + Private 서브넷 준비 |
+| [v1.2.0](./docs/v1.2.0.md) | 2026-02-05 | 백엔드 스펙 업그레이드 + EIP |
+| [v1.1.0](./docs/v1.1.0.md) | 2026-01-13 | 모니터링 서버 추가 |
+| [v1.0.0](./docs/v1.0.0.md) | 2026-01-11 | 초기 인프라 구성 |
