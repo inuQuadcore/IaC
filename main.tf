@@ -143,3 +143,13 @@ module "database" {
   db_password       = var.db_password
   db_instance_class = var.db_instance_class
 }
+
+# ============================================================
+# WAF
+# AWS WAF v2 - ALB ?곌껐 (遊??ㅼ틦??李⑤떒, OWASP Top 10)
+# ============================================================
+module "waf" {
+  source       = "./modules/waf"
+  project_name = var.project_name
+  alb_arn      = module.alb.alb_arn
+}

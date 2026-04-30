@@ -27,3 +27,8 @@ output "api_url" {
   description = "API endpoint URL"
   value       = "https://api.${var.domain_name}"
 }
+
+output "alb_arn" {
+  description = "ALB ARN (WAF 연결용)"
+  value       = aws_lb.main.arn
+}
