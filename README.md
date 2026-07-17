@@ -156,13 +156,11 @@ Lambda+EventBridge 서버리스, 이상 감지 시 Bedrock 호출·Slack 알림,
 
 ## 트러블슈팅
 
-### AWS WAF 오탐으로 인한 정상 트래픽 차단
-
-[docs/error/waf-false-positive.md](./docs/error/waf-false-positive.md)
-
-### 관제 에이전트 알림 신뢰도(Signal-to-Noise) 개선
-
-[docs/error/agent-signal-to-noise.md](./docs/error/agent-signal-to-noise.md)
+| 문서 | 요약 |
+| --- | --- |
+| [waf-false-positive](./docs/error/waf-false-positive.md) | AWS WAF 관리형 규칙의 Body 크기 제한으로 정상 번역 업로드가 403 차단되던 문제를 엔드포인트별 허용 규칙으로 해결 |
+| [agent-signal-to-noise](./docs/error/agent-signal-to-noise.md) | GPU 관제 에이전트의 반복 오탐·중복 알림 문제를 트리거 재정의·쿨다운·로그 스코프 필터링으로 해결 |
+| [onprem-gpu-network-boundary](./docs/error/onprem-gpu-network-boundary.md) | 온프레미스 GPU 서버(laurel)와 AWS VPC 간 양방향 트래픽이 SG 참조 방식·방화벽 화이트리스트로 막히던 문제를 CIDR 규칙·포트 화이트리스트로 해결 |
 
 ---
 
